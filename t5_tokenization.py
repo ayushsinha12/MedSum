@@ -5,7 +5,7 @@ from transformers import AutoTokenizer
 cleaned_dataset = load_from_disk("bhc_cleaned_dataset")
 
 # set the T5 model and appropriate tokenizer
-model_name = "google/t5-base"
+model_name = "google-t5/t5-small"
 tokenizer = AutoTokenizer.from_pretrained(model_name)
 
 # set the max input and target lengths
