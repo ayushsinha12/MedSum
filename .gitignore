@@ -1,6 +1,5 @@
 bhc_cleaned_dataset/
 t5_tokenized/
-bart_tokenized/
 t5_checkpoints/
 t5_model/
 bart_base_mimic_checkpoints/
