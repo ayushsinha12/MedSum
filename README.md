@@ -1,76 +1,172 @@
-## 目录
-- [1. 什么是NLP](#1-什么是nlp)
-- [2. NLP主要研究方向](#2-nlp主要研究方向)
-- [3. NLP的发展](#3-nlp的发展)
-- [4. NLP任务的一般步骤](#4-nlp任务的一般步骤)
-- [5. 我的NLP启蒙读本](#5-我的nlp启蒙读本)
-- [6. NLP、CV，选哪个？](#6-nlpcv选哪个)
+# MedSum - Clinical Note Summarization with BART and T5
 
-## 1. 什么是NLP
+This project fine-tunes two encoder–decoder Transformer models, **T5-small** and **BART-base**, to generate abstractive summaries of real clinical notes from the **MIMIC-IV-BHC** dataset.  
+We compare the two models in terms of training dynamics and ROUGE-based summarization quality.
 
-自然语言处理 (Natural Language Processing) 是人工智能（AI）的一个子[领域](https://baike.baidu.com/item/领域/4662537)。**自然语言处理是研究在人与人交互中以及在人与计算机交互中的语言问题的一门学科。**为了建设和完善语言模型，自然语言处理建立计算框架，提出相应的方法来不断的完善设计各种实用系统，并探讨这些实用系统的评测方法。
+---
 
-## 2. NLP主要研究方向
+## 1. Dataset
 
-1. **信息抽取：**从给定文本中抽取重要的信息，比如时间、地点、人物、事件、原因、结果、数字、日期、货币、专有名词等等。通俗说来，就是要了解谁在什么时候、什么原因、对谁、做了什么事、有什么结果。
-2. **文本生成：**机器像人一样使用自然语言进行表达和写作。依据输入的不同，文本生成技术主要包括数据到文本生成和文本到文本生成。数据到文本生成是指将包含键值对的数据转化为自然语言文本；文本到文本生成对输入文本进行转化和处理从而产生新的文本。
-3. **问答系统：**对一个自然语言表达的问题，由问答系统给出一个精准的答案。需要对自然语言查询语句进行某种程度的语义分析，包括实体链接、关系识别，形成逻辑表达式，然后到知识库中查找可能的候选答案并通过一个排序机制找出最佳的答案。
-4. **对话系统：**系统通过一系列的对话，跟用户进行聊天、回答、完成某一项任务。涉及到用户意图理解、通用聊天引擎、问答引擎、对话管理等技术。此外，为了体现上下文相关，要具备多轮对话能力。
-5. **文本挖掘：**包括文本聚类、分类、情感分析以及对挖掘的信息和知识的可视化、交互式的表达界面。目前主流的技术都是基于统计机器学习的。
-6. **语音识别和生成：**语音识别是将输入计算机的语音符号识别转换成书面语表示。语音生成又称文语转换、语音合成，它是指将书面文本自动转换成对应的语音表征。
-7. **信息过滤：**通过计算机系统自动识别和过滤符合特定条件的文档信息。通常指网络有害信息的自动识别和过滤，主要用于信息安全和防护，网络内容管理等。
-8. **舆情分析：**是指收集和处理海量信息，自动化地对网络舆情进行分析，以实现及时应对网络舆情的目的。
-9. **信息检索：**对大规模的文档进行索引。可简单对文档中的词汇，赋之以不同的权重来建立索引，也可建立更加深层的索引。在查询的时候，对输入的查询表达式比如一个检索词或者一个句子进行分析，然后在索引里面查找匹配的候选文档，再根据一个排序机制把候选文档排序，最后输出排序得分最高的文档。
-10. **机器翻译：**把输入的源语言文本通过自动翻译获得另外一种语言的文本。机器翻译从最早的基于规则的方法到二十年前的基于统计的方法，再到今天的基于神经网络（编码-解码）的方法，逐渐形成了一套比较严谨的方法体系。
+We use the **MIMIC-IV-BHC** dataset from PhysioNet.
 
-## 3. NLP的发展
+- Contains **full clinical notes** written during hospitalization, along with **human-written discharge summaries** that we treat as ground truth.
+- Size: roughly **300,000 rows** of high-quality clinical text.
+- Due to the sensitive nature of the data, we had to:
+  - Complete a certification process on **PhysioNet**.
+  - Agree to strict usage and privacy requirements.
 
-1. **1950年前：图灵测试**
-   1950年前阿兰·图灵图灵测试：人和机器进行交流，如果人无法判断自己交流的对象是人还是机器，就说明这个机器具有智能。
+This dataset is ideal for our project because it provides long, realistic notes paired with concise expert summaries.
 
-2. **1950-1970：主流：基于规则形式语言理论**
+---
 
-   乔姆斯基，根据数学中的公理化方法研究自然语言，采用代数和集合论把形式语言定义为符号的序列。他试图使用有限的规则描述无限的语言现象，发现人类普遍的语言机制，建立所谓的普遍语法。
+## 2. Preprocessing
 
-3. **1970-至今：主流：基于统计**
-   谷歌、微软、IBM，20世纪70年代，弗里德里克·贾里尼克及其领导的IBM华生实验室将语音识别率从70%提升到90%。
-   1988年，IBM的彼得·布朗提出了基于统计的机器翻译方法。
-   2005年，Google机器翻译打败基于规则的Sys Tran。
+Our preprocessing pipeline is shared between **T5** and **BART** to ensure a fair comparison.
 
-4. **2010年以后：逆袭：机器学习**
+1. **Text Cleaning**
+   - Remove PHI markers like `[** ... **]`.
+   - Remove or normalize:
+     - Newline characters.
+     - Repeated punctuation (e.g., `---`, `===`).
+     - Extra spaces and other minor formatting artifacts.
 
-   AlphaGo先后战胜李世石、柯洁等，掀起人工智能热潮。深度学习、人工神经网络成为热词。领域：语音识别、图像识别、机器翻译、自动驾驶、智能家居。
+2. **Filter Low-Quality Examples**
+   - Keep only notes with at least **1,300 characters**.
+   - Keep only summaries with at least **300 characters**.
+   - This removes extremely short or uninformative pairs and focuses training on richer examples.
 
-## 4. NLP任务的一般步骤
+3. **Train / Validation / Test Split**
+   - Split the cleaned dataset into:
+     - **81%** train
+     - **9%** validation
+     - **10%** test
+   - The same split is used for both models.
 
-下面图片看不清楚的，可以百度脑图查看，[点击链接](https://naotu.baidu.com/file/f644044a8fb37fdba2d3d0bb4eb350e1?token=fd9855a9fc353aca)
+---
 
-![](https://upload-images.jianshu.io/upload_images/1667471-37315f7baaee75f4.jpg)
+## 3. Tokenization
 
-## 5. 我的NLP启蒙读本
+We use the native tokenizers from Hugging Face for each model.
 
-[《数学之美》--吴军](<https://www.lanzous.com/i3ousch>)
+### 3.1. How Tokenization Works
 
-## 6. NLP、CV，选哪个？
+- Text is broken into **tokens**, which are not always full words.
+  - For example, `"pneumonia"` might be split into `"pneumon"` + `"ia"`.
+  - Common words often stay whole, while rare medical terms may be split.
+- Each token is then mapped to a **numeric ID** from the model’s vocabulary.
+  - Example (T5):  
+    - `"the"` → `3`  
+    - `"patient"` → `1871`  
+    - `"has"` → `65`
 
-**NLP：**自然语言处理，数据是文本。
+### 3.2. Vocabulary Sizes
 
-**CV：**计算机视觉，数据是图像。
+- **T5-small**: vocabulary of about **32,000** tokens.
+- **BART-base**: vocabulary of about **50,000** tokens.
 
-两者属于不同的领域，在遇到这个问题的时候，我也是犹豫了很久，想了很多，于是乎得出一个结论：**都是利用深度学习去解决现实世界存在的问题，离开了CV，NLP存活不了；离开了NLP，CV存活不了。两者就像兄弟姐妹一样，整个“家庭”不能分割但个体又存在差异！**
+Both models therefore see the **same cleaned text**, but encode it using their own subword vocabularies and token IDs.
 
-NLP/CV属于两个不同的研究领域，都是很好的领域，可以根据自己的爱好作出适合自己的选择，人工智能是一个多学科交叉的领域，需要的不仅仅是单方面的能力，而是多方面的能力。对于每个人来说都有自己的侧重点，毕竟人的精力是有限的。**只要在自己擅长的领域里持续深耕，我相信都会有所成就！**
+---
 
-这里提供一些参考资料给大家阅读阅读，做出适合自己的选择：
+## 4. T5 Model and Training
 
-- [一文看尽2018全年AI技术大突破：NLP跨过分水岭、CV研究效果惊人](<https://www.toutiao.com/i6637321233358668292/>)
-- [《数学之美》--吴军](<https://www.lanzous.com/i3ousch>)
-- [BERT时代与后时代的NLP](<https://mp.weixin.qq.com/s/U_pYc5roODcs_VENDoTbiQ>)
+### 4.1. Model
 
-------
+- **Model**: `t5-small` (~**60M parameters**).
+- **Architecture**: encoder–decoder Transformer.
+  - **Encoder**: processes the full input note and builds contextual representations.
+  - **Decoder**: generates the summary **one token at a time**, attending to the encoder output.
 
-> 作者：[@mantchs](https://github.com/NLP-LOVE/ML-NLP)
->
-> GitHub：[https://github.com/NLP-LOVE/ML-NLP](https://github.com/NLP-LOVE/ML-NLP)
->
-> 欢迎大家加入讨论！共同完善此项目！群号：【541954936】<a target="_blank" href="//shang.qq.com/wpa/qunwpa?idkey=863f915b9178560bd32ca07cd090a7d9e6f5f90fcff5667489697b1621cecdb3"><img border="0" src="http://pub.idqqimg.com/wpa/images/group.png" alt="NLP面试学习群" title="NLP面试学习群"></a>
+### 4.2. Training Objective
+
+- **Loss function**: token-level **cross-entropy** between predicted next tokens and ground truth.
+- During training, we use **teacher forcing**:
+  - After each predicted token, the decoder is fed the **true** next token so it doesn’t drift off early with wrong words.
+
+### 4.3. Optimization Setup
+
+- **Optimizer**: AdamW  
+- **Learning rate**: `3e-5`  
+- **Batch size**: `8`  
+- **Epochs**: `3`  
+- Training loss decreases sharply, especially in the **first two epochs**, which contribute most of the performance gains.
+
+---
+
+## 5. BART Model and Training
+
+### 5.1. Model
+
+- **Model**: `facebook/bart-base` (~**139M parameters**).
+- **Architecture**: denoising encoder–decoder Transformer.
+  - Pretrained to reconstruct clean text from **corrupted inputs**, which is well suited to summarization.
+  - **Encoder**: processes the full clinical note.
+  - **Decoder**: generates the summary token-by-token using **cross-attention** over the encoded note.
+
+### 5.2. Training Objective
+
+- **Loss function**: same token-level **cross-entropy** as T5 (predicted vs. actual next tokens).
+
+### 5.3. Optimization Setup
+
+- **Optimizer**: AdamW  
+- **Learning rate**: `2e-5`  
+- **Batch size**: `1` (safer for MacBook RAM with long sequences)  
+- **Epochs**: **4**
+- **Sequence lengths**:
+  - **Input notes**: max **1024 tokens**
+  - **Summaries**: max **512 tokens**
+
+### 5.4. Checkpointing
+
+After each epoch:
+
+- The Trainer saves a numbered checkpoint (`checkpoint-XXXX`).
+- A small utility script copies the latest one to **`checkpoint-latest`**, making it easy to resume training or reload the best model later without losing previous epochs.
+
+---
+
+## 6. Evaluation with ROUGE
+
+We evaluate both models on the **held-out test set** using **beam search** at generation time:
+
+- Beam search explores multiple possible summary continuations before choosing the final output.
+- We then compute **ROUGE** scores **out of 100%** (we multiply the raw 0–1 scores by 100).
+
+### 6.1. Metrics
+
+We use four ROUGE variants:
+
+- **ROUGE-1**: unigram overlap (individual word matches).
+- **ROUGE-2**: bigram overlap (consecutive word pairs).
+- **ROUGE-L**: longest common subsequence between model summary and reference.
+- **ROUGE-Lsum**: longest common subsequence computed over the **entire summary** text (segment-level ROUGE-L).
+
+These scores give a quantitative measure of how much of the reference summary’s content the model captures.
+
+---
+## 8. Repository Structure
+
+A simplified view of the relevant files:
+
+- `bart_data_cleaning.ipynb` –  
+  Preprocessing and cleaning pipeline for MIMIC-IV-BHC (text cleaning, filtering, splitting, creation of `train_clean.csv`, `val_clean.csv`, `test_clean.csv`).
+
+- `bart_training.ipynb` –  
+  End-to-end BART workflow:
+  - Load cleaned CSVs.
+  - Convert to `datasets.Dataset`.
+  - Tokenize body/summary pairs.
+  - Define `DataCollatorForSeq2Seq`.
+  - Configure `TrainingArguments`, train the model, and save checkpoints.
+  - Evaluate on the test set and compute ROUGE metrics.
+  - Generate example summaries for qualitative inspection.
+
+- `train_t5.py` / `t5_tokenization.py` / `t5_evaluation.py` –  
+  Scripts for T5 tokenization, training, and ROUGE evaluation using a similar pipeline to BART.
+
+- `bart_base_mimic_checkpoints/`(not included) –  
+  Directory containing Hugging Face checkpoints for BART, including `checkpoint-latest` for the final model.
+
+- `train_clean.csv`, `val_clean.csv`, `test_clean.csv`(not included) –  
+  Cleaned and filtered note/summary pairs used by both models.
