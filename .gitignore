@@ -6,3 +6,5 @@ bart_base_mimic_checkpoints/
 train_clean.csv
 val_clean.csv
 test_clean.csv
+# but not trainer_state.json
+!t5_checkpoints/*/trainer_state.json
