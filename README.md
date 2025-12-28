@@ -5,7 +5,7 @@ We compare the two models in terms of training dynamics and ROUGE-based summariz
 
 ---
 
-## 1. Dataset
+## Dataset
 
 We use the **MIMIC-IV-BHC** dataset from PhysioNet.
 
@@ -19,7 +19,7 @@ This dataset is ideal for our project because it provides long, realistic notes 
 
 ---
 
-## 2. Preprocessing
+## Preprocessing
 
 Our preprocessing pipeline is shared between **T5** and **BART** to ensure a fair comparison.
 
@@ -44,11 +44,11 @@ Our preprocessing pipeline is shared between **T5** and **BART** to ensure a fai
 
 ---
 
-## 3. Tokenization
+## Tokenization
 
 We use the native tokenizers from Hugging Face for each model.
 
-### 3.1. How Tokenization Works
+### How Tokenization Works
 
 - Text is broken into **tokens**, which are not always full words.
   - For example, `"pneumonia"` might be split into `"pneumon"` + `"ia"`.
@@ -59,7 +59,7 @@ We use the native tokenizers from Hugging Face for each model.
     - `"patient"` → `1871`  
     - `"has"` → `65`
 
-### 3.2. Vocabulary Sizes
+### Vocabulary Sizes
 
 - **T5-small**: vocabulary of about **32,000** tokens.
 - **BART-base**: vocabulary of about **50,000** tokens.
@@ -68,22 +68,22 @@ Both models therefore see the **same cleaned text**, but encode it using their o
 
 ---
 
-## 4. T5 Model and Training
+## T5 Model and Training
 
-### 4.1. Model
+### Model
 
 - **Model**: `t5-small` (~**60M parameters**).
 - **Architecture**: encoder–decoder Transformer.
   - **Encoder**: processes the full input note and builds contextual representations.
   - **Decoder**: generates the summary **one token at a time**, attending to the encoder output.
 
-### 4.2. Training Objective
+### Training Objective
 
 - **Loss function**: token-level **cross-entropy** between predicted next tokens and ground truth.
 - During training, we use **teacher forcing**:
   - After each predicted token, the decoder is fed the **true** next token so it doesn’t drift off early with wrong words.
 
-### 4.3. Optimization Setup
+### Optimization Setup
 
 - **Optimizer**: AdamW  
 - **Learning rate**: `3e-5`  
@@ -93,9 +93,9 @@ Both models therefore see the **same cleaned text**, but encode it using their o
 
 ---
 
-## 5. BART Model and Training
+## BART Model and Training
 
-### 5.1. Model
+### Model
 
 - **Model**: `facebook/bart-base` (~**139M parameters**).
 - **Architecture**: denoising encoder–decoder Transformer.
@@ -103,11 +103,11 @@ Both models therefore see the **same cleaned text**, but encode it using their o
   - **Encoder**: processes the full clinical note.
   - **Decoder**: generates the summary token-by-token using **cross-attention** over the encoded note.
 
-### 5.2. Training Objective
+### Training Objective
 
 - **Loss function**: same token-level **cross-entropy** as T5 (predicted vs. actual next tokens).
 
-### 5.3. Optimization Setup
+### Optimization Setup
 
 - **Optimizer**: AdamW  
 - **Learning rate**: `2e-5`  
@@ -117,7 +117,7 @@ Both models therefore see the **same cleaned text**, but encode it using their o
   - **Input notes**: max **1024 tokens**
   - **Summaries**: max **512 tokens**
 
-### 5.4. Checkpointing
+### Checkpointing
 
 After each epoch:
 
@@ -126,14 +126,14 @@ After each epoch:
 
 ---
 
-## 6. Evaluation with ROUGE
+## Evaluation with ROUGE
 
 We evaluate both models on the **held-out test set** using **beam search** at generation time:
 
 - Beam search explores multiple possible summary continuations before choosing the final output.
 - We then compute **ROUGE** scores **out of 100%** (we multiply the raw 0–1 scores by 100).
 
-### 6.1. Metrics
+### Metrics
 
 We use four ROUGE variants:
 
@@ -145,7 +145,7 @@ We use four ROUGE variants:
 These scores give a quantitative measure of how much of the reference summary’s content the model captures.
 
 ---
-## 8. Repository Structure
+## Repository Structure
 
 A simplified view of the relevant files:
 
